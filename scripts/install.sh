@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+ #!/usr/bin/env bash
 #
 # install.sh -- Install The Agency agents into your local agentic tool(s).
 #
@@ -16,6 +16,7 @@
 #   gemini-cli   -- Install extension to ~/.gemini/extensions/agency-agents/
 #   opencode     -- Copy agents to .opencode/agent/ in current directory
 #   cursor       -- Copy rules to .cursor/rules/ in current directory
+#   trae         -- Copy skills to ~/.trae/skills/
 #   aider        -- Copy CONVENTIONS.md to current directory
 #   windsurf     -- Copy .windsurfrules to current directory
 #   openclaw     -- Copy workspaces to ~/.openclaw/agency-agents/
@@ -81,7 +82,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 INTEGRATIONS="$REPO_ROOT/integrations"
 
-ALL_TOOLS=(claude-code copilot antigravity gemini-cli opencode openclaw cursor aider windsurf)
+ALL_TOOLS=(claude-code copilot antigravity gemini-cli opencode openclaw cursor trae aider windsurf)
 
 # ---------------------------------------------------------------------------
 # Usage
@@ -110,6 +111,7 @@ detect_antigravity()  { [[ -d "${HOME}/.gemini/antigravity/skills" ]]; }
 detect_gemini_cli()   { command -v gemini >/dev/null 2>&1 || [[ -d "${HOME}/.gemini" ]]; }
 detect_cursor()       { command -v cursor >/dev/null 2>&1 || [[ -d "${HOME}/.cursor" ]]; }
 detect_opencode()     { command -v opencode >/dev/null 2>&1 || [[ -d "${HOME}/.config/opencode" ]]; }
+detect_trae()         { command -v trae >/dev/null 2>&1 || [[ -d "${HOME}/.trae" ]]; }
 detect_aider()        { command -v aider >/dev/null 2>&1; }
 detect_openclaw()     { command -v openclaw >/dev/null 2>&1 || [[ -d "${HOME}/.openclaw" ]]; }
 detect_windsurf()     { command -v windsurf >/dev/null 2>&1 || [[ -d "${HOME}/.codeium" ]]; }
@@ -123,6 +125,7 @@ is_detected() {
     opencode)    detect_opencode    ;;
     openclaw)    detect_openclaw    ;;
     cursor)      detect_cursor      ;;
+    trae)        detect_trae        ;;
     aider)       detect_aider       ;;
     windsurf)    detect_windsurf    ;;
     *)           return 1 ;;
@@ -139,6 +142,7 @@ tool_label() {
     opencode)    printf "%-14s  %s" "OpenCode"     "(opencode.ai)"           ;;
     openclaw)    printf "%-14s  %s" "OpenClaw"     "(~/.openclaw)"           ;;
     cursor)      printf "%-14s  %s" "Cursor"       "(.cursor/rules)"         ;;
+    trae)        printf "%-14s  %s" "Trae"         "(~/.trae/skills)"        ;;
     aider)       printf "%-14s  %s" "Aider"        "(CONVENTIONS.md)"        ;;
     windsurf)    printf "%-14s  %s" "Windsurf"     "(.windsurfrules)"        ;;
   esac
@@ -384,6 +388,30 @@ install_cursor() {
   warn "Cursor: project-scoped. Run from your project root to install there."
 }
 
+install_trae() {
+  local src="$INTEGRATIONS/trae/skills"
+  local fallback_src="$INTEGRATIONS/gemini-cli/skills"
+  local dest="${HOME}/.trae/skills"
+  local count=0
+
+  # Trae skills use SKILL.md and optional support files per skill directory.
+  if [[ ! -d "$src" ]]; then
+    src="$fallback_src"
+  fi
+  [[ -d "$src" ]] || { err "No Trae-ready skills found (expected integrations/trae/skills or integrations/gemini-cli/skills). Run convert.sh first."; return 1; }
+
+  mkdir -p "$dest"
+  local d
+  while IFS= read -r -d '' d; do
+    local name; name="$(basename "$d")"
+    mkdir -p "$dest/$name"
+    cp -R "$d/." "$dest/$name/"
+    (( count++ )) || true
+  done < <(find "$src" -mindepth 1 -maxdepth 1 -type d -print0)
+
+  ok "Trae: $count skills -> $dest"
+}
+
 install_aider() {
   local src="$INTEGRATIONS/aider/CONVENTIONS.md"
   local dest="${PWD}/CONVENTIONS.md"
@@ -419,6 +447,7 @@ install_tool() {
     opencode)    install_opencode    ;;
     openclaw)    install_openclaw    ;;
     cursor)      install_cursor      ;;
+    trae)        install_trae        ;;
     aider)       install_aider       ;;
     windsurf)    install_windsurf    ;;
   esac
